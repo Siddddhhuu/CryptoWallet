@@ -124,10 +124,12 @@ router.post('/create', auth, async (req, res) => {
 // Send transaction
 router.post('/send', auth, async (req, res) => {
   try {
-    const { to, amount, privateKey, rpcUrl } = req.body;
+    const { to, amount, privateKey, rpcUrl, tokenSymbol } = req.body;
+
     if (!rpcUrl) {
       return res.status(400).json({ message: 'RPC URL is required to send transaction.' });
     }
+
     const web3 = getWeb3(rpcUrl);
 
     // Test connection
@@ -136,7 +138,7 @@ router.post('/send', auth, async (req, res) => {
     } catch (connError) {
       console.error(`Connection test failed for ${rpcUrl}:`, connError);
       return res.status(503).json({ 
-        message: 'Ethereum node is not available. Please check your RPC URL or connection.',
+        message: 'Ethereum node is not available.',
         error: 'ETHEREUM_NODE_ERROR',
         details: connError.message
       });
@@ -148,16 +150,26 @@ router.post('/send', auth, async (req, res) => {
       return res.status(400).json({ message: 'Invalid wallet' });
     }
 
+    // Detect Token Symbol Automatically
+    let symbol = tokenSymbol;
+
+    if (!symbol) {
+      if (rpcUrl.includes('apothem')) symbol = 'TXDC';
+      else if (rpcUrl.includes('xinfin')) symbol = 'XDC';
+      else if (rpcUrl.includes('volta')) symbol = 'VWT';
+      else if (rpcUrl.includes('sepolia')) symbol = 'ETH';
+      else symbol = 'ETH';
+    }
+
     // Get current gas price
     const gasPrice = await web3.eth.getGasPrice();
-    console.log('Current gas price:', gasPrice);
 
     const transaction = {
       from: user.walletAddress,
       to: to,
       value: web3.utils.toWei(amount.toString(), 'ether'),
-      gas: 21000, // Standard gas limit for simple ETH transfer
-      gasPrice: gasPrice // Include the fetched gas price
+      gas: 21000,
+      gasPrice: gasPrice
     };
 
     const signedTx = await web3.eth.accounts.signTransaction(transaction, privateKey);
@@ -165,24 +177,26 @@ router.post('/send', auth, async (req, res) => {
 
     // Fetch transaction details and store in DB
     const tx = await web3.eth.getTransaction(receipt.transactionHash);
+
     if (tx) {
-      // Fetch the block to get the timestamp
       const block = await web3.eth.getBlock(tx.blockNumber);
+
       const newTransaction = {
         hash: tx.hash,
         from: tx.from,
         to: tx.to,
         value: web3.utils.fromWei(tx.value, 'ether'),
-        timestamp: new Date(Number(block.timestamp) * 1000), // Use block.timestamp for accurate time
-        network: rpcUrl // Store the network it was sent on
+        timestamp: new Date(Number(block.timestamp) * 1000),
+        network: rpcUrl,
+        tokenSymbol: symbol 
       };
 
-      // Add the transaction to the user's history, ensure it's unique by hash
       user.transactions.push(newTransaction);
-      // Limit the history to a certain number of transactions (e.g., last 50)
+
       if (user.transactions.length > 50) {
         user.transactions.splice(0, user.transactions.length - 50);
       }
+
       await user.save();
     }
 
@@ -190,6 +204,7 @@ router.post('/send', auth, async (req, res) => {
       message: 'Transaction successful',
       transactionHash: receipt.transactionHash
     });
+
   } catch (error) {
     console.error('Error sending transaction:', error);
     res.status(500).json({ message: 'Error sending transaction', error: error.message });

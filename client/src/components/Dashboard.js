@@ -231,10 +231,11 @@ function Dashboard() {
       }
 
       await axios.post(`${API_URL}/api/wallet/send`, {
-        to: recipient,
-        amount,
-        privateKey: transactionPrivateKey,
-        rpcUrl: currentNetwork.rpcUrl
+          to: recipient,
+          amount,
+          privateKey: transactionPrivateKey,
+          rpcUrl: currentNetwork.rpcUrl,
+          tokenSymbol: currentNetwork.currency
       });
       alert('Transaction sent successfully!');
       setRecipient('');
