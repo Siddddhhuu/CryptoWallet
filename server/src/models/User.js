@@ -31,7 +31,8 @@ const userSchema = new mongoose.Schema({
       timestamp: { type: Date, default: Date.now },
       network: { type: String, required: true },
       tokenAddress: { type: String, default: null },
-      tokenSymbol: { type: String, default: 'ETH' }
+      tokenSymbol: { type: String, default: 'ETH' },
+      type: { type: String, enum: ['sent', 'received'], default: 'sent' } // sent or received
     }
   ],
   createdAt: {

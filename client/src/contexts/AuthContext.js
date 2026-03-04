@@ -42,16 +42,27 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       axios.get(`${API_URL}/api/auth/me`)
         .then(response => {
+          console.log('Auth verification successful:', response.data);
           setUser(response.data);
           setIsAuthenticated(true);
           fetchWalletInfo();
         })
-        .catch(() => {
-          localStorage.removeItem('token');
-          localStorage.removeItem(PRIVATE_KEY_STORAGE_KEY);
-          localStorage.removeItem(MNEMONIC_STORAGE_KEY);
-          delete axios.defaults.headers.common['Authorization'];
-          setPrivateKey(null);
+        .catch((err) => {
+          console.error('Auth verification failed:', err.response?.status, err.response?.data || err.message);
+          // Keep user logged in if token exists, but log the error
+          // This prevents logout on network errors or temporary backend issues
+          if (token) {
+            console.log('Token exists but verification failed. Keeping user logged in.');
+            setIsAuthenticated(true);
+            setUser({ email: 'Unknown', walletAddress: null });
+            fetchWalletInfo();
+          } else {
+            localStorage.removeItem('token');
+            localStorage.removeItem(PRIVATE_KEY_STORAGE_KEY);
+            localStorage.removeItem(MNEMONIC_STORAGE_KEY);
+            delete axios.defaults.headers.common['Authorization'];
+            setPrivateKey(null);
+          }
         })
         .finally(() => setLoading(false));
     } else {
@@ -185,14 +196,20 @@ export const AuthProvider = ({ children }) => {
           console.log('AuthContext: Private Key refreshed with user data.');
         }
       } catch (error) {
-        console.error('Error refreshing user data:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem(PRIVATE_KEY_STORAGE_KEY);
-        localStorage.removeItem(MNEMONIC_STORAGE_KEY);
-        delete axios.defaults.headers.common['Authorization'];
-        setUser(null);
-        setIsAuthenticated(false);
-        setPrivateKey(null);
+        console.error('Error refreshing user data:', error.response?.status, error.response?.data || error.message);
+        // Keep authenticated state if token exists, but log the error
+        if (token) {
+          console.log('Token exists but user refresh failed. Keeping authenticated state.');
+          setIsAuthenticated(true);
+        } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem(PRIVATE_KEY_STORAGE_KEY);
+          localStorage.removeItem(MNEMONIC_STORAGE_KEY);
+          delete axios.defaults.headers.common['Authorization'];
+          setUser(null);
+          setIsAuthenticated(false);
+          setPrivateKey(null);
+        }
       }
     }
   };

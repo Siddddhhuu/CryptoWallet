@@ -126,8 +126,32 @@ router.post('/send', auth, async (req, res) => {
   try {
     const { to, amount, privateKey, rpcUrl, tokenSymbol } = req.body;
 
+    // Validate inputs
+    if (!to) {
+      return res.status(400).json({ message: 'Recipient address is required.' });
+    }
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Valid amount is required.' });
+    }
+    if (!privateKey) {
+      return res.status(400).json({ message: 'Private key is required.' });
+    }
     if (!rpcUrl) {
       return res.status(400).json({ message: 'RPC URL is required to send transaction.' });
+    }
+
+    // Validate recipient address format (must start with 0x and be valid)
+    if (!to.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return res.status(400).json({ message: 'Invalid recipient address format. Must be a valid hex address starting with 0x.' });
+    }
+
+    // Validate private key format (must start with 0x if provided)
+    let formattedPrivateKey = privateKey;
+    if (!privateKey.startsWith('0x') && privateKey.length === 64) {
+      formattedPrivateKey = '0x' + privateKey;
+    }
+    if (!formattedPrivateKey.match(/^0x[a-fA-F0-9]{64}$/)) {
+      return res.status(400).json({ message: 'Invalid private key format. Must be a valid 64-character hex string.' });
     }
 
     const web3 = getWeb3(rpcUrl);
@@ -161,53 +185,228 @@ router.post('/send', auth, async (req, res) => {
       else symbol = 'ETH';
     }
 
-    // Get current gas price
-    const gasPrice = await web3.eth.getGasPrice();
+    try {
+      // Get current gas price
+      const gasPrice = await web3.eth.getGasPrice();
+      console.log('Gas price:', gasPrice);
 
-    const transaction = {
-      from: user.walletAddress,
-      to: to,
-      value: web3.utils.toWei(amount.toString(), 'ether'),
-      gas: 21000,
-      gasPrice: gasPrice
-    };
+      // Convert amount to Wei
+      const amountInWei = web3.utils.toWei(amount.toString(), 'ether');
+      console.log('Amount in Wei:', amountInWei);
 
-    const signedTx = await web3.eth.accounts.signTransaction(transaction, privateKey);
-    const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
-
-    // Fetch transaction details and store in DB
-    const tx = await web3.eth.getTransaction(receipt.transactionHash);
-
-    if (tx) {
-      const block = await web3.eth.getBlock(tx.blockNumber);
-
-      const newTransaction = {
-        hash: tx.hash,
-        from: tx.from,
-        to: tx.to,
-        value: web3.utils.fromWei(tx.value, 'ether'),
-        timestamp: new Date(Number(block.timestamp) * 1000),
-        network: rpcUrl,
-        tokenSymbol: symbol 
+      const transaction = {
+        from: user.walletAddress,
+        to: to,
+        value: amountInWei,
+        gas: 21000,
+        gasPrice: gasPrice
       };
 
-      user.transactions.push(newTransaction);
+      console.log('Transaction object:', transaction);
 
-      if (user.transactions.length > 50) {
-        user.transactions.splice(0, user.transactions.length - 50);
+      // Sign the transaction
+      const signedTx = await web3.eth.accounts.signTransaction(transaction, formattedPrivateKey);
+      console.log('Transaction signed successfully');
+
+      // Send the signed transaction
+      const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+      console.log('Transaction sent:', receipt.transactionHash);
+
+      // Fetch transaction details and store in DB
+      const tx = await web3.eth.getTransaction(receipt.transactionHash);
+
+      if (tx) {
+        const block = await web3.eth.getBlock(tx.blockNumber);
+
+        const newTransaction = {
+          hash: tx.hash,
+          from: tx.from,
+          to: tx.to,
+          value: web3.utils.fromWei(tx.value, 'ether'),
+          timestamp: new Date(Number(block.timestamp) * 1000),
+          network: rpcUrl,
+          tokenSymbol: symbol,
+          type: 'sent'
+        };
+
+        user.transactions.push(newTransaction);
+
+        if (user.transactions.length > 50) {
+          user.transactions.splice(0, user.transactions.length - 50);
+        }
+
+        await user.save();
       }
 
-      await user.save();
-    }
+      res.json({ 
+        message: 'Transaction successful',
+        transactionHash: receipt.transactionHash
+      });
 
-    res.json({ 
-      message: 'Transaction successful',
-      transactionHash: receipt.transactionHash
-    });
+    } catch (txError) {
+      console.error('Transaction error:', txError.message);
+      res.status(400).json({ 
+        message: 'Transaction failed', 
+        error: txError.message,
+        details: 'Check your private key, recipient address, and ensure you have sufficient balance'
+      });
+    }
 
   } catch (error) {
     console.error('Error sending transaction:', error);
-    res.status(500).json({ message: 'Error sending transaction', error: error.message });
+    res.status(500).json({ 
+      message: 'Error sending transaction', 
+      error: error.message,
+      details: error.stack 
+    });
+  }
+});
+
+// Scan and store received transactions
+router.post('/scan-received', auth, async (req, res) => {
+  try {
+    console.log('=== SCAN RECEIVED START ===');
+    const { rpcUrl } = req.body;
+    if (!rpcUrl) {
+      return res.status(400).json({ message: 'RPC URL is required.' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user || !user.walletAddress) {
+      console.log('User or wallet not found');
+      return res.status(400).json({ message: 'No wallet address found' });
+    }
+
+    console.log('Scanning for address:', user.walletAddress);
+
+    const web3 = getWeb3(rpcUrl);
+
+    // Get latest block number
+    let latestBlockBig;
+    try {
+      latestBlockBig = await web3.eth.getBlockNumber();
+      console.log('Latest block:', latestBlockBig);
+    } catch (blockErr) {
+      console.error('Error getting latest block:', blockErr.message);
+      return res.status(503).json({ message: 'Could not connect to blockchain' });
+    }
+
+    // convert BigInt to Number for arithmetic
+    const latestBlock = Number(latestBlockBig);
+    if (Number.isNaN(latestBlock)) {
+      console.error('Unable to convert latestBlock to number:', latestBlockBig);
+      return res.status(500).json({ message: 'Invalid block number' });
+    }
+
+    // Scan only the last 100 blocks (reduced for safety)
+    const scanFromBlock = Math.max(0, latestBlock - 100);
+    console.log(`Scanning blocks ${scanFromBlock} to ${latestBlock}`);
+    
+    let receivedCount = 0;
+    let sentCount = 0;
+    let processedBlocks = 0;
+
+    for (let blockNum = scanFromBlock; blockNum <= latestBlock; blockNum++) {
+      try {
+        const block = await web3.eth.getBlock(blockNum, true);
+        processedBlocks++;
+        
+        if (!block) {
+          console.warn(`Block ${blockNum} is null`);
+          continue;
+        }
+
+        if (!block.transactions || !Array.isArray(block.transactions)) {
+          continue;
+        }
+
+        const userAddressLower = user.walletAddress.toLowerCase();
+
+        for (const tx of block.transactions) {
+          if (!tx || typeof tx !== 'object') continue;
+
+          try {
+            const txHashLower = (tx.hash || '').toLowerCase();
+            const fromLower = (tx.from || '').toLowerCase();
+            const toLower = (tx.to || '').toLowerCase();
+
+            if (!txHashLower || !fromLower) continue;
+
+            // Check if already stored
+            const existingTx = user.transactions.find(t => t.hash.toLowerCase() === txHashLower);
+            if (existingTx) continue;
+
+            // Received: user is recipient but not sender
+            if (toLower === userAddressLower && fromLower !== userAddressLower) {
+              console.log(`Found received tx: ${txHashLower}`);
+              const txValue = web3.utils.fromWei(tx.value || '0', 'ether');
+              const newTransaction = {
+                hash: tx.hash,
+                from: tx.from,
+                to: tx.to,
+                value: txValue,
+                timestamp: new Date(Number(block.timestamp) * 1000),
+                network: rpcUrl,
+                tokenSymbol: 'TXDC',
+                type: 'received'
+              };
+              user.transactions.push(newTransaction);
+              receivedCount++;
+            }
+            // Sent: user is sender
+            else if (fromLower === userAddressLower && toLower) {
+              console.log(`Found sent tx: ${txHashLower}`);
+              const txValue = web3.utils.fromWei(tx.value || '0', 'ether');
+              const newTransaction = {
+                hash: tx.hash,
+                from: tx.from,
+                to: tx.to,
+                value: txValue,
+                timestamp: new Date(Number(block.timestamp) * 1000),
+                network: rpcUrl,
+                tokenSymbol: 'TXDC',
+                type: 'sent'
+              };
+              user.transactions.push(newTransaction);
+              sentCount++;
+            }
+          } catch (txErr) {
+            console.warn(`Error processing tx: ${txErr.message}`);
+            continue;
+          }
+        }
+      } catch (blockErr) {
+        console.warn(`Error processing block ${blockNum}: ${blockErr.message}`);
+        continue;
+      }
+    }
+
+    // Keep only last 50 transactions
+    if (user.transactions.length > 50) {
+      user.transactions = user.transactions.slice(-50);
+    }
+
+    try {
+      await user.save();
+      console.log(`Scan complete: ${receivedCount} received, ${sentCount} sent (${processedBlocks} blocks scanned)`);
+    } catch (saveErr) {
+      console.error('Error saving transactions:', saveErr.message);
+      return res.status(500).json({ message: 'Error saving transactions to database' });
+    }
+
+    res.json({ 
+      message: 'Transactions scanned successfully',
+      receivedFound: receivedCount,
+      sentFound: sentCount,
+      blocksScanned: processedBlocks
+    });
+  } catch (error) {
+    console.error('=== SCAN ERROR ===', error.message);
+    console.error(error);
+    res.status(500).json({ 
+      message: 'Error scanning transactions', 
+      error: error.message
+    });
   }
 });
 

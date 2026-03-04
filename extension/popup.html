@@ -4,18 +4,80 @@
     <meta charset="UTF-8" />
     <title>Wallet Extension</title>
     <style>
-      html, body, #root {
+      * {
         margin: 0;
         padding: 0;
+        box-sizing: border-box;
+      }
+
+      html, body, #root {
         width: 400px;
         height: 650px;
-        /* overflow-x: hidden; */
-        /* overflow-y: auto; */
+        overflow: hidden;
+        font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #2a1a4a 100%);
+        color: #ffffff;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      /* Scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 212, 255, 0.3);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 212, 255, 0.5);
+      }
+
+      /* Global text selection */
+      ::selection {
+        background: rgba(0, 212, 255, 0.3);
+        color: #ffffff;
       }
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="container">
+        <header class="header">
+          <div>
+            <h2>Wallet Extension</h2>
+            <div id="address" class="muted">Not connected</div>
+          </div>
+          <button id="refreshBtn" title="Refresh">⟳</button>
+        </header>
+
+        <section class="balance">
+          <div>
+            <div class="label">Balance</div>
+            <div id="balanceValue" class="value">--</div>
+          </div>
+        </section>
+
+        <section class="tx-section">
+          <div class="tx-header">
+            <h3>Transactions</h3>
+            <div id="txCount" class="muted">0</div>
+          </div>
+          <div id="txList" class="tx-list">
+            <div class="placeholder">No transactions yet. Click refresh to load.</div>
+          </div>
+        </section>
+      </div>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>
