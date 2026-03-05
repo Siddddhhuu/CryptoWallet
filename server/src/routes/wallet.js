@@ -298,33 +298,42 @@ router.post('/scan-received', auth, async (req, res) => {
       return res.status(500).json({ message: 'Invalid block number' });
     }
 
-    // Scan only the last 100 blocks (reduced for safety)
-    const scanFromBlock = Math.max(0, latestBlock - 100);
+    // Detect Token Symbol Automatically
+    let symbol = 'ETH';
+    if (rpcUrl.includes('apothem')) symbol = 'TXDC';
+    else if (rpcUrl.includes('xinfin')) symbol = 'XDC';
+    else if (rpcUrl.includes('volta')) symbol = 'VWT';
+    else if (rpcUrl.includes('sepolia')) symbol = 'ETH';
+
+    // Scan the last 1000 blocks in batches of 50 concurrently
+    const scanFromBlock = Math.max(0, latestBlock - 1000);
     console.log(`Scanning blocks ${scanFromBlock} to ${latestBlock}`);
     
     let receivedCount = 0;
     let sentCount = 0;
     let processedBlocks = 0;
 
-    for (let blockNum = scanFromBlock; blockNum <= latestBlock; blockNum++) {
-      try {
-        const block = await web3.eth.getBlock(blockNum, true);
-        processedBlocks++;
-        
-        if (!block) {
-          console.warn(`Block ${blockNum} is null`);
-          continue;
-        }
+    const batchSize = 50;
+    for (let i = scanFromBlock; i <= latestBlock; i += batchSize) {
+      const endBlock = Math.min(i + batchSize - 1, latestBlock);
+      const promises = [];
+      for (let j = i; j <= endBlock; j++) {
+        promises.push(web3.eth.getBlock(j, true).catch(err => {
+          console.warn(`Error getting block ${j}: ${err.message}`);
+          return null;
+        }));
+      }
+      
+      const blocks = await Promise.all(promises);
 
-        if (!block.transactions || !Array.isArray(block.transactions)) {
-          continue;
-        }
+      for (const block of blocks) {
+        if (!block || !block.transactions || !Array.isArray(block.transactions)) continue;
+        processedBlocks++;
 
         const userAddressLower = user.walletAddress.toLowerCase();
-
+        
         for (const tx of block.transactions) {
           if (!tx || typeof tx !== 'object') continue;
-
           try {
             const txHashLower = (tx.hash || '').toLowerCase();
             const fromLower = (tx.from || '').toLowerCase();
@@ -332,52 +341,33 @@ router.post('/scan-received', auth, async (req, res) => {
 
             if (!txHashLower || !fromLower) continue;
 
-            // Check if already stored
             const existingTx = user.transactions.find(t => t.hash.toLowerCase() === txHashLower);
             if (existingTx) continue;
 
-            // Received: user is recipient but not sender
             if (toLower === userAddressLower && fromLower !== userAddressLower) {
               console.log(`Found received tx: ${txHashLower}`);
               const txValue = web3.utils.fromWei(tx.value || '0', 'ether');
-              const newTransaction = {
-                hash: tx.hash,
-                from: tx.from,
-                to: tx.to,
-                value: txValue,
+              user.transactions.push({
+                hash: tx.hash, from: tx.from, to: tx.to, value: txValue,
                 timestamp: new Date(Number(block.timestamp) * 1000),
-                network: rpcUrl,
-                tokenSymbol: 'TXDC',
-                type: 'received'
-              };
-              user.transactions.push(newTransaction);
+                network: rpcUrl, tokenSymbol: symbol, type: 'received'
+              });
               receivedCount++;
             }
-            // Sent: user is sender
             else if (fromLower === userAddressLower && toLower) {
               console.log(`Found sent tx: ${txHashLower}`);
               const txValue = web3.utils.fromWei(tx.value || '0', 'ether');
-              const newTransaction = {
-                hash: tx.hash,
-                from: tx.from,
-                to: tx.to,
-                value: txValue,
+              user.transactions.push({
+                hash: tx.hash, from: tx.from, to: tx.to, value: txValue,
                 timestamp: new Date(Number(block.timestamp) * 1000),
-                network: rpcUrl,
-                tokenSymbol: 'TXDC',
-                type: 'sent'
-              };
-              user.transactions.push(newTransaction);
+                network: rpcUrl, tokenSymbol: symbol, type: 'sent'
+              });
               sentCount++;
             }
           } catch (txErr) {
             console.warn(`Error processing tx: ${txErr.message}`);
-            continue;
           }
         }
-      } catch (blockErr) {
-        console.warn(`Error processing block ${blockNum}: ${blockErr.message}`);
-        continue;
       }
     }
 
@@ -410,18 +400,25 @@ router.post('/scan-received', auth, async (req, res) => {
   }
 });
 
-// Get transaction history (new POST route)
+// Get transaction history - filtered by network rpcUrl
 router.post('/transactions', auth, async (req, res) => {
   try {
-    const { rpcUrl } = req.body; // rpcUrl is passed for consistency, can be used for filtering later
+    const { rpcUrl } = req.body;
 
     const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Return transactions, most recent first
-    res.json({ transactions: user.transactions.sort((a, b) => b.timestamp - a.timestamp) });
+    let txs = user.transactions;
+
+    // Filter by network if rpcUrl provided
+    if (rpcUrl) {
+      txs = txs.filter(tx => tx.network === rpcUrl);
+    }
+
+    // Return filtered transactions, most recent first
+    res.json({ transactions: txs.sort((a, b) => b.timestamp - a.timestamp) });
   } catch (error) {
     console.error('Error fetching transactions:', error);
     res.status(500).json({ 

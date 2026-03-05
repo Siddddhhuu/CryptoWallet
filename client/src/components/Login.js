@@ -1,35 +1,22 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Container,
-  Paper,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  Alert,
-  useTheme,
-  alpha,
-  IconButton,
-  InputAdornment,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Divider
+  Container, Paper, TextField, Button, Typography, Box, Alert,
+  IconButton, InputAdornment, Dialog, DialogTitle, DialogContent,
+  DialogActions, Divider
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   AccountCircle as AccountIcon,
   Lock as LockIcon,
-  VpnKey as VpnKeyIcon
+  VpnKey as VpnKeyIcon,
+  AccountBalanceWallet as WalletIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { ethers } from 'ethers';
 
 const MNEMONIC_STORAGE_KEY = 'wallet_mnemonic';
-const PRIVATE_KEY_STORAGE_KEY = 'wallet_private_key';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -41,7 +28,6 @@ function Login() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const navigate = useNavigate();
   const { login, loginWithWallet, updatePrivateKey } = useAuth();
-  const theme = useTheme();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -74,15 +60,12 @@ function Login() {
 
       localStorage.setItem(MNEMONIC_STORAGE_KEY, importMnemonic);
       updatePrivateKey(privateKey);
-      console.log('Login: Private Key set after import via AuthContext.');
 
       await loginWithWallet(walletAddress);
-      alert('Wallet imported and logged in successfully!');
       navigate('/');
 
     } catch (err) {
       setError(err.message || 'Failed to import wallet');
-      console.error('Import wallet error:', err);
     } finally {
       setLoading(false);
       setShowImportDialog(false);
@@ -91,251 +74,77 @@ function Login() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #2a1a4a 100%)',
-        padding: 2,
-      }}
-    >
-      <Container sx={{ width: '100%', maxWidth: 420 }}>
-        <Paper 
-          elevation={0}
-          sx={{ 
-            borderRadius: 3,
-            overflow: 'hidden',
-            background: 'linear-gradient(135deg, rgba(20, 24, 41, 0.8) 0%, rgba(20, 24, 41, 0.6) 100%)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(0, 212, 255, 0.1)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-          }}
-        >
-          <Box sx={{ p: 5 }}>
-            <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <Typography 
-                variant="h3" 
-                component="h1" 
-                sx={{ 
-                  fontWeight: 700,
-                  background: 'linear-gradient(135deg, #00d4ff 0%, #ff006e 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  mb: 1,
-                  letterSpacing: '-0.02em'
-                }}
-              >
-                Welcome Back
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                Access your crypto wallet
-              </Typography>
+    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0B0F19', padding: 2 }}>
+      <Container sx={{ width: '100%', maxWidth: 420, p: 0 }}>
+        <Paper elevation={24} sx={{ borderRadius: 4, background: '#131A2A', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+          
+          {/* Header */}
+          <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+            <Box sx={{ p: 1.5, mb: 2, borderRadius: 3, background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 16px rgba(59, 130, 246, 0.2)' }}>
+              <WalletIcon sx={{ color: '#fff', fontSize: '2rem' }} />
             </Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em' }}>Welcome Back</Typography>
+            <Typography variant="body2" sx={{ color: '#94A3B8', mt: 0.5 }}>Access your crypto wallet</Typography>
+          </Box>
             
+          <Box sx={{ p: 4, pt: 3 }}>
             {error && (
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  mb: 3,
-                  borderRadius: 2,
-                  backgroundColor: 'rgba(255, 51, 102, 0.1)',
-                  borderColor: '#ff3366',
-                  color: '#ff99bb'
-                }}
-              >
+              <Alert severity="error" sx={{ mb: 3, borderRadius: 2, backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#FCA5A5', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
                 {error}
               </Alert>
             )}
 
             <form onSubmit={handleSubmit}>
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                margin="normal"
-                required
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <AccountIcon sx={{ color: '#00d4ff', mr: 1 }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 2 }}
+              <TextField 
+                fullWidth label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required margin="normal" variant="outlined" 
+                sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#F8FAFC', fieldset: { borderColor: 'rgba(255,255,255,0.1)' }, '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' } }, '& .MuiInputLabel-root': { color: '#94A3B8' } }} 
+                InputProps={{ startAdornment: <InputAdornment position="start"><AccountIcon sx={{ color: '#64748B' }} /></InputAdornment> }} 
               />
-              <TextField
-                fullWidth
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                margin="normal"
-                required
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockIcon sx={{ color: '#00d4ff', mr: 1 }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                        sx={{ color: '#00d4ff' }}
-                      >
-                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 3 }}
+              <TextField 
+                fullWidth label="Password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} required margin="normal" variant="outlined" 
+                sx={{ mb: 3, '& .MuiOutlinedInput-root': { color: '#F8FAFC', fieldset: { borderColor: 'rgba(255,255,255,0.1)' }, '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' } }, '& .MuiInputLabel-root': { color: '#94A3B8' } }} 
+                InputProps={{ 
+                  startAdornment: <InputAdornment position="start"><LockIcon sx={{ color: '#64748B' }} /></InputAdornment>,
+                  endAdornment: <InputAdornment position="end"><IconButton onClick={() => setShowPassword(!showPassword)} sx={{ color: '#64748B' }}>{showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}</IconButton></InputAdornment> 
+                }} 
               />
-              <Button
-                fullWidth
-                variant="contained"
-                type="submit"
-                disabled={loading}
-                sx={{ 
-                  py: 1.5,
-                  borderRadius: 2,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  position: 'relative',
-                  overflow: 'hidden',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: '-100%',
-                    width: '100%',
-                    height: '100%',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    transition: 'left 0.3s',
-                  },
-                  '&:hover::before': {
-                    left: '100%',
-                  },
-                }}
-              >
+              
+              <Button fullWidth variant="contained" type="submit" disabled={loading} sx={{ borderRadius: 3, py: 1.5, background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)', fontWeight: 600, textTransform: 'none', fontSize: '1rem', boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)' }}>
                 {loading ? 'Logging in...' : 'Login'}
               </Button>
             </form>
 
             <Box sx={{ position: 'relative', my: 3 }}>
-              <Divider sx={{ backgroundColor: 'rgba(0, 212, 255, 0.1)' }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>OR</Typography>
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                <Typography variant="body2" sx={{ color: '#64748B', px: 1 }}>OR</Typography>
               </Divider>
             </Box>
 
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<VpnKeyIcon />}
-              onClick={() => setShowImportDialog(true)}
-              disabled={loading}
-              sx={{ 
-                py: 1.5,
-                borderRadius: 2,
-                fontSize: '1rem',
-                fontWeight: 600,
-                borderColor: '#ff006e',
-                color: '#ff006e',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 0, 110, 0.05)',
-                  borderColor: '#ff99bb',
-                  color: '#ff99bb',
-                }
-              }}
-            >
+            <Button fullWidth variant="outlined" startIcon={<VpnKeyIcon />} onClick={() => setShowImportDialog(true)} disabled={loading} sx={{ borderRadius: 3, py: 1.5, borderColor: '#334155', color: '#F8FAFC', fontWeight: 600, textTransform: 'none', fontSize: '1rem', '&:hover': { borderColor: '#475569', background: 'rgba(255,255,255,0.02)' } }}>
               Import Wallet
             </Button>
 
-            <Box sx={{ mt: 4, textAlign: 'center' }}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#94A3B8' }}>
                 Don't have an account?{' '}
-                <Link 
-                  to="/register" 
-                  style={{ 
-                    color: '#00d4ff',
-                    textDecoration: 'none',
-                    fontWeight: 600,
-                    transition: 'all 0.3s',
-                  }}
-                  onMouseEnter={(e) => e.target.style.color = '#4dd9ff'}
-                  onMouseLeave={(e) => e.target.style.color = '#00d4ff'}
-                >
-                  Create Account
-                </Link>
+                <Link to="/register" style={{ color: '#3B82F6', textDecoration: 'none', fontWeight: 600 }}>Create Account</Link>
               </Typography>
             </Box>
           </Box>
         </Paper>
       </Container>
 
-      <Dialog 
-        open={showImportDialog} 
-        onClose={() => setShowImportDialog(false)} 
-        PaperProps={{ 
-          sx: {
-            background: 'linear-gradient(135deg, rgba(20, 24, 41, 0.8) 0%, rgba(20, 24, 41, 0.6) 100%)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(0, 212, 255, 0.1)',
-            borderRadius: 3,
-          }
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.3rem' }}>
-          Import Wallet with Secret Phrase
-        </DialogTitle>
+      {/* Import Wallet Dialog */}
+      <Dialog open={showImportDialog} onClose={() => setShowImportDialog(false)} PaperProps={{ sx: { background: '#131A2A', borderRadius: 4, border: '1px solid rgba(255,255,255,0.05)', minWidth: 320 } }}>
+        <DialogTitle sx={{ color: '#F8FAFC', fontWeight: 700 }}>Import Wallet</DialogTitle>
         <DialogContent>
-          <Alert 
-            severity="info" 
-            sx={{ 
-              mt: 2,
-              mb: 2,
-              backgroundColor: 'rgba(0, 212, 255, 0.1)',
-              borderColor: '#00d4ff',
-              color: '#4dd9ff'
-            }}
-          >
-            Enter your 12-word secret recovery phrase to import your existing wallet. Ensure words are separated by spaces.
-          </Alert>
-          <TextField
-            fullWidth
-            label="Secret Recovery Phrase (12 words)"
-            multiline
-            rows={4}
-            value={importMnemonic}
-            onChange={(e) => setImportMnemonic(e.target.value.toLowerCase())}
-            margin="normal"
-            required
-            disabled={loading}
-            placeholder="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
-          />
-          {error && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mt: 2,
-                backgroundColor: 'rgba(255, 51, 102, 0.1)',
-                borderColor: '#ff3366',
-              }}
-            >
-              {error}
-            </Alert>
-          )}
+          <Typography variant="body2" sx={{ color: '#94A3B8', mb: 2 }}>Enter your 12-word mnemonic phrase:</Typography>
+          <TextField fullWidth multiline rows={3} value={importMnemonic} onChange={e => setImportMnemonic(e.target.value.toLowerCase())} sx={{ '& .MuiOutlinedInput-root': { color: '#F8FAFC', fieldset: { borderColor: 'rgba(255,255,255,0.1)' }, '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' } } }} placeholder="word1 word2..." disabled={loading} />
+          {error && <Alert severity="error" sx={{ mt: 2, background: 'rgba(239, 68, 68, 0.1)', color: '#FCA5A5', border: '1px solid rgba(239, 68, 68, 0.2)' }}>{error}</Alert>}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setShowImportDialog(false)} disabled={loading}>Cancel</Button>
-          <Button onClick={handleImportWallet} variant="contained" disabled={loading}>
-            {loading ? 'Importing...' : 'Import'}
-          </Button>
+          <Button onClick={() => setShowImportDialog(false)} sx={{ color: '#94A3B8' }} disabled={loading}>Cancel</Button>
+          <Button onClick={handleImportWallet} variant="contained" disabled={loading} sx={{ background: '#3B82F6', fontWeight: 600 }}>{loading ? 'Importing...' : 'Import'}</Button>
         </DialogActions>
       </Dialog>
     </Box>
