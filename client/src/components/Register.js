@@ -90,7 +90,7 @@ function Register() {
                   letterSpacing: '-0.02em'
                 }}
               >
-                Create Your Wallet
+                Create Your Kaay Wallet
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 Join the crypto revolution

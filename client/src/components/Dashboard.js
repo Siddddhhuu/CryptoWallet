@@ -373,7 +373,7 @@ function Dashboard() {
                   <WalletIcon sx={{ color: '#fff', fontWeight: 700 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>Wallet</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>Kaay</Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>Manage your assets</Typography>
                 </Box>
               </Box>
